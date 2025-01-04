@@ -1,6 +1,17 @@
 const fs = require('fs')
 const path = require('path')
 const AdmZip = require('adm-zip-iconv')
+const { isMap } = require('util/types')
+
+/**
+ * 导出配置
+ */
+const exportConfig = {
+  uploadFiles: false, //是否上传文件：图片、附件
+  referenceDocJumpType: '.md', //引用文档跳转类型： .md | .html | null
+}
+
+let isMultipleSheet = false
 
 /**
  * 解压文件到指定目录
@@ -19,9 +30,25 @@ function unzip(filepath, target) {
   console.log(`文件${filepath}已解压缩到目标目录:${target}`)
 }
 
+const idMap = new Map([])
+function addIdMap(node, rootId) {
+  if (!node) {
+    return
+  }
+  idMap.set(node.id, { ...node, children: undefined, rootId })
+  if (
+    node.children &&
+    node.children.attached &&
+    node.children.attached.length > 0
+  ) {
+    let children = node.children.attached
+    for (let child of children) {
+      addIdMap(child, rootId)
+    }
+  }
+}
 function toMarkdown(filename, xmindDir) {
   let files = fs.readdirSync(xmindDir)
-  fd = fs.openSync(`${filename}.md`, 'w+')
   for (let file of files) {
     let absfile = path.join(xmindDir, file)
     // let tempFD = fs.openSync(file)
@@ -32,14 +59,29 @@ function toMarkdown(filename, xmindDir) {
       if (file === 'content.json') {
         let buffer = fs.readFileSync(absfile)
         let contentJsonArray = JSON.parse(buffer.toString('utf8'))
-        const isMultipleSheet = contentJsonArray.length > 1
+        isMultipleSheet = contentJsonArray.length > 1
         if (isMultipleSheet) {
           fs.mkdirSync(filename, { recursive: true })
         }
+
         for (let contentJson of contentJsonArray) {
           let root = contentJson.rootTopic
+          idMap.set(root.id, { ...root, children: undefined, rootId: root.id })
+          addIdMap(root, root.id)
+        }
+        // console.log(
+        //   JSON.stringify(Array.from(idMap, ([key, value]) => ({ key, value })))
+        // )
+
+        for (let contentJson of contentJsonArray) {
+          let root = contentJson.rootTopic
+          let fd
           if (isMultipleSheet) {
+            //TODO：TOC目录
+            // fd = fs.openSync(`${filename}/${filename}.md`, 'w+')
             fd = fs.openSync(`${filename}/${root.title}.md`, 'w+')
+          } else {
+            fd = fs.openSync(`${filename}.md`, 'w+')
           }
           let context = {
             name: filename,
@@ -92,20 +134,68 @@ function traverse(context, node, level) {
     myWrite(context, content)
   }
 
+  //图片
   if (node.image) {
     let src = node.image.src.slice(4)
     let imageTitle = node.title || 'default'
-    let imageDir = `${context.name}.attachment`
+    let imageDir = !isMultipleSheet
+      ? `${context.name}.attachment`
+      : `${context.name}/attachment`
     let imageName = src.slice(src.lastIndexOf('/') + 1)
     let newImageSrc = `${imageDir}/${imageName}`
-    if (!fs.existsSync(imageDir)) {
-      fs.mkdirSync(imageDir, { recursive: true })
+    if (exportConfig.uploadFiles) {
+      //TODO：待上传文件
+      newImageSrc = 'https://domain.com/a68fc5005269440c8b7450d698af2a07.png'
+    } else {
+      if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir, { recursive: true })
+      }
+      let realSrc = path.join(context.baseDir, src)
+      if (!fs.existsSync(newImageSrc)) {
+        fs.copyFileSync(realSrc, newImageSrc)
+      }
     }
-    let realSrc = path.join(context.baseDir, src)
-    if (!fs.existsSync(newImageSrc)) {
-      fs.copyFileSync(realSrc, newImageSrc)
+    let content = `![${imageTitle}](${newImageSrc})\n\n`
+    console.log(content)
+    myWrite(context, content)
+  }
+
+  // href 附件
+  if (node.href && !node.href.startsWith('xmind:')) {
+    let src = node.href.slice(4)
+    let imageTitle = node.title || 'default'
+    let imageDir = !isMultipleSheet
+      ? `${context.name}.attachment`
+      : `${context.name}/attachment`
+    let imageName = src.slice(src.lastIndexOf('/') + 1)
+    let newImageSrc = `${imageDir}/${imageName}`
+    if (exportConfig.uploadFiles) {
+      //TODO：待上传文件
+      newImageSrc = 'https://domain.com/xdssrfafdafasfdasfas.zip'
+    } else {
+      if (!fs.existsSync(imageDir)) {
+        fs.mkdirSync(imageDir, { recursive: true })
+      }
+      let realSrc = path.join(context.baseDir, src)
+      if (!fs.existsSync(newImageSrc)) {
+        fs.copyFileSync(realSrc, newImageSrc)
+      }
     }
-    let content = `![${imageTitle}](${newImageSrc})`
+    let content = `[${imageTitle}](${newImageSrc})\n\n`
+    console.log(content)
+    myWrite(context, content)
+  }
+
+  // href 引用跳转
+  if (node.href && node.href.startsWith('xmind:')) {
+    let id = node.href.slice(node.href.lastIndexOf('#') + 1)
+    let useNode = idMap.get(id)
+    let useNodeRoot = idMap.get(useNode?.rootId)
+    console.log('node.href uesId=', useNode)
+
+    let content = `[${useNodeRoot ? useNodeRoot.title : node.title}](${
+      useNodeRoot ? useNodeRoot.title : node.title
+    }${exportConfig.referenceDocJumpType})\n\n`
     console.log(content)
     myWrite(context, content)
   }
