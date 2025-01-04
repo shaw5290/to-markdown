@@ -32,19 +32,26 @@ function toMarkdown(filename, xmindDir) {
       if (file === 'content.json') {
         let buffer = fs.readFileSync(absfile)
         let contentJsonArray = JSON.parse(buffer.toString('utf8'))
-        let context = {
-          name: filename,
-          baseDir: xmindDir,
-          fd: fd,
+        const isMultipleSheet = contentJsonArray.length > 1
+        if (isMultipleSheet) {
+          fs.mkdirSync(filename, { recursive: true })
         }
         for (let contentJson of contentJsonArray) {
           let root = contentJson.rootTopic
+          if (isMultipleSheet) {
+            fd = fs.openSync(`${filename}/${root.title}.md`, 'w+')
+          }
+          let context = {
+            name: filename,
+            baseDir: xmindDir,
+            fd: fd,
+          }
           traverse(context, root, 1)
+          fs.closeSync(fd)
         }
       }
     }
   }
-  fs.closeSync(fd)
   console.log('转换完成')
 }
 function myWrite(context, content) {
@@ -72,7 +79,7 @@ function traverse(context, node, level) {
     console.log(title)
     console.error(str, TPYE.CODE, title)
     myWrite(context, title)
-  } else if (node.title && level <= 3) {
+  } else if (node.title && level <= 6) {
     let prefix = signMultiplication('#', level)
     let title = `${prefix} ${node.title}\n\n`
     console.log(title)
