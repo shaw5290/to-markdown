@@ -4,8 +4,8 @@ const AdmZip = require('adm-zip-iconv')
 
 /**
  * 解压文件到指定目录
- * @param {待解压的文件} filepath 
- * @param {指定解压的目录} target 
+ * @param {待解压的文件} filepath
+ * @param {指定解压的目录} target
  */
 function unzip(filepath, target) {
   const zip = new AdmZip(filepath, 'gbk')
@@ -35,7 +35,7 @@ function toMarkdown(filename, xmindDir) {
         let context = {
           name: filename,
           baseDir: xmindDir,
-          fd: fd
+          fd: fd,
         }
         for (let contentJson of contentJsonArray) {
           let root = contentJson.rootTopic
@@ -45,7 +45,7 @@ function toMarkdown(filename, xmindDir) {
     }
   }
   fs.closeSync(fd)
-  console.log("转换完成")
+  console.log('转换完成')
 }
 function myWrite(context, content) {
   fs.writeFileSync(context.fd, content)
@@ -57,8 +57,22 @@ function traverse(context, node, level) {
   if (!node) {
     return
   }
+  const TPYE = {
+    CODE: '```',
+  }
+  let str = node.title?.trim()
+  //代码块
+  /* 
+    ```js
 
-  if (node.title) {
+    ```
+ */
+  if (str && str.startsWith(TPYE.CODE) && str.endsWith(TPYE.CODE)) {
+    let title = `${node.title}\n\n`
+    console.log(title)
+    console.error(str, TPYE.CODE, title)
+    myWrite(context, title)
+  } else if (node.title && level <= 3) {
     let prefix = signMultiplication('#', level)
     let title = `${prefix} ${node.title}\n\n`
     console.log(title)
@@ -69,14 +83,13 @@ function traverse(context, node, level) {
     let content = `${node.notes.plain.content}\n\n`
     console.log(content)
     myWrite(context, content)
-
   }
 
   if (node.image) {
     let src = node.image.src.slice(4)
-    let imageTitle = node.title || "default"
+    let imageTitle = node.title || 'default'
     let imageDir = `${context.name}.attachment`
-    let imageName = src.slice(src.lastIndexOf("/") + 1)
+    let imageName = src.slice(src.lastIndexOf('/') + 1)
     let newImageSrc = `${imageDir}/${imageName}`
     if (!fs.existsSync(imageDir)) {
       fs.mkdirSync(imageDir, { recursive: true })
@@ -90,7 +103,11 @@ function traverse(context, node, level) {
     myWrite(context, content)
   }
 
-  if (node.children && node.children.attached && node.children.attached.length > 0) {
+  if (
+    node.children &&
+    node.children.attached &&
+    node.children.attached.length > 0
+  ) {
     let children = node.children.attached
     for (let child of children) {
       traverse(context, child, level + 1)
@@ -109,14 +126,13 @@ function signMultiplication(sign, n) {
   return result
 }
 
-
 function entry() {
   let filepath = findOption('-f')
   let filename = filepath.split(path.sep).pop()
-  filename = filename.replace(".xmind", "")
+  filename = filename.replace('.xmind', '')
   const extractToPath = 'extracted/'
   if (!fs.existsSync(filepath)) {
-    console.error(`未找到${filepath}文件`);
+    console.error(`未找到${filepath}文件`)
   }
   if (fs.existsSync(extractToPath)) {
     fs.rmSync(extractToPath, { force: true, recursive: true })
@@ -130,7 +146,7 @@ function findOption(option) {
   let args = process.argv
   const i = args.findIndex((value, _index, _arr) => option === value)
   if (i > args.length - 2) {
-    console.err("usage: node xmind.cjs -f xxxx.xmind");
+    console.err('usage: node xmind.cjs -f xxxx.xmind')
     return
   }
   return args[i + 1]
