@@ -3,8 +3,12 @@
     "name": "zhoup",
     "email": "zlove.freedomer@gmail.com"
   },
+  "scripts": {
+    "build:pkg": "pkg -t win ./xmind.cjs --output ./dist/xmind2md.exe"
+  },
   "dependencies": {
     "adm-zip-iconv": "^0.4.9",
-    "iconv-lite": "^0.6.3"
+    "iconv-lite": "^0.6.3",
+    "pkg": "^5.8.1"
   }
 }

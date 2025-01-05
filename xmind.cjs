@@ -9,6 +9,7 @@ const { isMap } = require('util/types')
 const exportConfig = {
   uploadFiles: false, //是否上传文件：图片、附件
   referenceDocJumpType: '.md', //引用文档跳转类型： .md | .html | null
+  // referenceDocJumpType: '.html'
 }
 
 let isMultipleSheet = false
@@ -106,30 +107,48 @@ function traverse(context, node, level) {
   if (!node) {
     return
   }
+
+  // console.log('ThisLineNode', useNode)
   const TPYE = {
     CODE: '```',
   }
   let str = node.title?.trim()
   //代码块
-  /* 
-    ```js
-
-    ```
- */
   if (str && str.startsWith(TPYE.CODE) && str.endsWith(TPYE.CODE)) {
-    let title = `${node.title}\n\n`
+    let title = `${node.title}\n`
     console.log(title)
     console.error(str, TPYE.CODE, title)
     myWrite(context, title)
   } else if (node.title && level <= 6) {
     let prefix = signMultiplication('#', level)
-    let title = `${prefix} ${node.title}\n\n`
+    let title = `${prefix} ${node.title}\n`
+    // href 引用跳转
+    if (node.href && node.href.startsWith('xmind:')) {
+      let id = node.href.slice(node.href.lastIndexOf('#') + 1)
+      let useNode = idMap.get(id)
+      let useNodeRoot = idMap.get(useNode?.rootId)
+      // console.log('node.href uesId=', useNode)
+      const anchorPoint = (str) => {
+        if (
+          exportConfig.referenceDocJumpType === '.html' ||
+          !exportConfig.referenceDocJumpType
+        ) {
+          str = `/#${node.title}`
+          return str
+        }
+        return ''
+      }
+      let content = `[${useNodeRoot ? useNodeRoot.title : node.title}](./${
+        useNodeRoot ? useNodeRoot.title : node.title
+      }${exportConfig.referenceDocJumpType}${anchorPoint(title)})\n`
+      title = level <= 6 ? `${prefix} ${content}` : content
+    }
     console.log(title)
     myWrite(context, title)
   }
 
   if (node.notes && node.notes.plain.content) {
-    let content = `${node.notes.plain.content}\n\n`
+    let content = `${node.notes.plain.content}\n`
     console.log(content)
     myWrite(context, content)
   }
@@ -155,7 +174,7 @@ function traverse(context, node, level) {
         fs.copyFileSync(realSrc, newImageSrc)
       }
     }
-    let content = `![${imageTitle}](${newImageSrc})\n\n`
+    let content = `![${imageTitle}](${newImageSrc})\n`
     console.log(content)
     myWrite(context, content)
   }
@@ -181,22 +200,8 @@ function traverse(context, node, level) {
         fs.copyFileSync(realSrc, newImageSrc)
       }
     }
-    let content = `[${imageTitle}](${newImageSrc})\n\n`
-    console.log(content)
-    myWrite(context, content)
-  }
-
-  // href 引用跳转
-  if (node.href && node.href.startsWith('xmind:')) {
-    let id = node.href.slice(node.href.lastIndexOf('#') + 1)
-    let useNode = idMap.get(id)
-    let useNodeRoot = idMap.get(useNode?.rootId)
-    console.log('node.href uesId=', useNode)
-
-    let content = `[${useNodeRoot ? useNodeRoot.title : node.title}](${
-      useNodeRoot ? useNodeRoot.title : node.title
-    }${exportConfig.referenceDocJumpType})\n\n`
-    console.log(content)
+    let content = `[${imageTitle}](${newImageSrc})\n`
+    // console.log(content)
     myWrite(context, content)
   }
 
