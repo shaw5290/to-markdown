@@ -147,12 +147,6 @@ function traverse(context, node, level) {
     myWrite(context, title)
   }
 
-  if (node.notes && node.notes.plain.content) {
-    let content = `${node.notes.plain.content}\n`
-    console.log(content)
-    myWrite(context, content)
-  }
-
   //图片
   if (node.image) {
     let src = node.image.src.slice(4)
@@ -178,7 +172,12 @@ function traverse(context, node, level) {
     console.log(content)
     myWrite(context, content)
   }
-
+  //笔记
+  if (node.notes && node.notes.plain.content) {
+    let content = `${node.notes.plain.content}\n`
+    console.log(content)
+    myWrite(context, content)
+  }
   // href 附件
   if (node.href && !node.href.startsWith('xmind:')) {
     let src = node.href.slice(4)
